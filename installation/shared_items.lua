@@ -1,0 +1,2 @@
+   -- items
+['register'] = {['name'] = 'register', ['label'] = 'register', ['weight'] = 200, ['type'] = 'item', ['image'] = 'register.png', ['unique'] = false, ['useable'] = true, ['shouldClose'] = true, ['combinable'] = nil, ['level'] = 0, ['description'] = 'Handheld'},
