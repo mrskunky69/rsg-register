@@ -4,6 +4,13 @@ local hasSpawned = false
 local InRange = false
 local SpawnedProps = {}
 
+local function InputStoreName()
+    local input = lib.inputDialog('Store Name', {
+        { type = 'input', label = 'Enter store name (leave blank for default)', required = false }
+    })
+    return input and input[1] or ""
+end
+
 
 
 ---------------------------------------------
@@ -54,6 +61,9 @@ RegisterNetEvent('rex-register:client:placenewprop', function(prophash, item, co
             return
         end
 
+        -- Prompt for store name
+        local storeName = InputStoreName()
+
         isBusy = true
         LocalPlayer.state:set("inv_busy", true, true) -- lock inventory
         local anim1 = `WORLD_HUMAN_CROUCH_INSPECT`
@@ -62,7 +72,7 @@ RegisterNetEvent('rex-register:client:placenewprop', function(prophash, item, co
         Wait(10000)
         ClearPedTasks(cache.ped)
         FreezeEntityPosition(cache.ped, false)
-        TriggerServerEvent('rex-register:server:newprop', prophash, item, coords, heading)
+        TriggerServerEvent('rex-register:server:newprop', prophash, item, coords, heading, storeName)
         LocalPlayer.state:set("inv_busy", false, true) -- unlock inventory
         isBusy = false
 
@@ -128,12 +138,12 @@ CreateThread(function()
 
 
             if Config.PlayerProps[i].item == 'register' then
-                local blip = BlipAddForEntity(1664425300, data.obj)
-                SetBlipSprite(blip, joaat(Config.Blip.blipSprite), true)
-                SetBlipName(blip, Config.Blip.blipName)
-                SetBlipScale(blip, Config.Blip.blipScale)
-                BlipAddModifier(blip, joaat(Config.Blip.blipColour))
-            end
+			local blip = BlipAddForEntity(1664425300, data.obj)
+			SetBlipSprite(blip, joaat(Config.Blip.blipSprite), true)
+			SetBlipName(blip, data.storeName or Config.Blip.blipName) -- Use custom name if available
+			SetBlipScale(blip, Config.Blip.blipScale)
+			BlipAddModifier(blip, joaat(Config.Blip.blipColour))
+end
 
             SpawnedProps[#SpawnedProps + 1] = data
             hasSpawned = false
@@ -391,11 +401,15 @@ AddEventHandler('rex-register:client:spawnNewProp', function(propData)
         FreezeEntityPosition(obj, true)
         SetModelAsNoLongerNeeded(obj)
         
-        -- Add blip for 'register' item
+        -- Add blip for 'register' item with custom store name
         if propData.item == 'register' then
             local blip = BlipAddForEntity(1664425300, obj)
             SetBlipSprite(blip, joaat(Config.Blip.blipSprite), true)
-            SetBlipName(blip, Config.Blip.blipName)
+            
+            -- Set custom blip name or use default if not provided
+            local blipName = propData.storeName and propData.storeName ~= "" and propData.storeName or Config.Blip.blipName
+            SetBlipName(blip, blipName)
+            
             SetBlipScale(blip, Config.Blip.blipScale)
             BlipAddModifier(blip, joaat(Config.Blip.blipColour))
         end
@@ -405,7 +419,8 @@ AddEventHandler('rex-register:client:spawnNewProp', function(propData)
             marketid = propData.marketid,
             citizenid = propData.citizenid,
             owner = propData.owner,
-            obj = obj
+            obj = obj,
+            storeName = propData.storeName -- Add storeName to SpawnedProps
         })
         
         -- Add target for the entity
@@ -415,13 +430,20 @@ AddEventHandler('rex-register:client:spawnNewProp', function(propData)
                     type = 'client',
                     event = 'rex-register:client:openmarketstall',
                     icon = 'fa-solid fa-basket-shopping',
-                    label = propData.owner .. Lang:t('client.lang_4'),
+                    label = (propData.storeName and propData.storeName ~= "" and propData.storeName or propData.owner) .. Lang:t('client.lang_4'),
                     action = function()
-                        TriggerEvent('rex-register:client:openmarket', propData.marketid, propData.citizenid)
+                        TriggerEvent('rex-register:client:openmarket', propData.marketid, propData.citizenid, propData.quality)
                     end,
                 },
             },
             distance = 5
+        })
+
+        -- Notify player of successful prop spawn
+        lib.notify({
+            title = 'Store Placed',
+            description = 'Your store "' .. (propData.storeName and propData.storeName ~= "" and propData.storeName or "Store") .. '" has been placed successfully.',
+            type = 'success'
         })
     end
 end)

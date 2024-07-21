@@ -32,12 +32,12 @@ AddEventHandler('rex-register:server:getProps', function()
 
     for i = 1, #result do
         local propData = json.decode(result[i].properties)
+        propData.storeName = result[i].storeName -- Ensure storeName is included
         if Config.EnableServerNotify then
             print(Lang:t('server.lang_1')..propData.item..Lang:t('server.lang_2')..propData.marketid)
         end
         table.insert(Config.PlayerProps, propData)
     end
-
 end)
 
 ---------------------------------------------
@@ -72,7 +72,7 @@ end)
 ---------------------------------------------
 -- create new market stall
 ---------------------------------------------
-RegisterNetEvent('rex-register:server:newprop', function(prophash, item, coords, heading)
+RegisterNetEvent('rex-register:server:newprop', function(prophash, item, coords, heading, storeName)
     local src = source
     local marketid = math.random(111111, 999999)
     local Player = RSGCore.Functions.GetPlayer(src)
@@ -80,6 +80,9 @@ RegisterNetEvent('rex-register:server:newprop', function(prophash, item, coords,
     local firstname = Player.PlayerData.charinfo.firstname
     local lastname = Player.PlayerData.charinfo.lastname
     local owner = firstname .. ' ' .. lastname
+
+    -- Use the provided store name or default to the config name
+    storeName = storeName ~= "" and storeName or Config.Blip.blipName
 
     local PropData = {
         marketid = marketid,
@@ -91,29 +94,29 @@ RegisterNetEvent('rex-register:server:newprop', function(prophash, item, coords,
         prophash = prophash,
         owner = owner,
         citizenid = citizenid,
-        buildttime = os.time()
+        buildttime = os.time(),
+        storeName = storeName,
+        quality = 100  -- Add an initial quality value
     }
 
     table.insert(Config.PlayerProps, PropData)
 
-    local datas = json.encode(PropData)
+    local properties = json.encode(PropData)  -- Encode the PropData to JSON
 
-    MySQL.Async.execute('INSERT INTO player_stores (properties, marketid, citizenid, owner, item) VALUES (@properties, @marketid, @citizenid, @owner, @item)',
+    MySQL.Async.execute('INSERT INTO player_stores (properties, marketid, citizenid, owner, item, storeName) VALUES (@properties, @marketid, @citizenid, @owner, @item, @storeName)',
     {
-        ['@properties'] = datas,
+        ['@properties'] = properties,  -- Use the encoded JSON string
         ['@marketid'] = marketid,
         ['@citizenid'] = citizenid,
         ['@owner'] = owner,
-        ['@item'] = item
+        ['@item'] = item,
+        ['@storeName'] = storeName
     })
 
     Player.Functions.RemoveItem(item, 1)
     TriggerClientEvent('inventory:client:ItemBox', src, RSGCore.Shared.Items[item], "remove")
     TriggerEvent('rex-register:server:updateProps')
-	TriggerClientEvent('rex-register:client:spawnNewProp', -1, PropData)
-	
-	
-
+    TriggerClientEvent('rex-register:client:spawnNewProp', -1, PropData)
 end)
 
 ---------------------------------------------
